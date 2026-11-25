@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beyond Strategy Pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+/* VOICE: the poster come alive on a phone: festive, playful, still easy to use in a queue.
+   IDEA: a holographic event ticket that prints out for you, tilts in your hand and gets stamped at the door.
+   PICTURE: the ticket with its white QR panel; on sign-in, the poster title with a live countdown.
+   COLOUR and TYPE: the poster's night-to-electric blue, cyan-lavender-pink gradient and four-point sparkle; Montserrat 800.
+   LAYOUT: one 460px phone column on every screen, centred on a laptop. */
+:root{color-scheme:dark;--ink:#f2f4ff;--mute:#b6bfea;--dim:#8f99cf;--card:rgba(12,24,104,.62);--line:rgba(170,185,255,.24);--ok:#3ff0b4;--cyan:#45f0e6;--bad:#ff8fab;--grad:linear-gradient(90deg,#45f0e6 0%,#8fb2ff 42%,#d58af5 72%,#f39bd6 100%);--chip:linear-gradient(90deg,#8af4ef,#c3c8ff 55%,#eab3f3)}
+*{box-sizing:border-box;min-width:0}
+html{background:#040a33}
+body{margin:0;min-height:100vh;color:var(--ink);font:16px/1.55 Montserrat,system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:clip;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+.sky{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(700px 520px at 100% -6%,rgba(47,107,255,.6),transparent 62%),radial-gradient(640px 520px at -20% 105%,rgba(196,92,240,.38),transparent 60%),linear-gradient(165deg,#040a33 0%,#0a1568 55%,#1430c4 100%)}
+.sky>svg:first-child{position:absolute;inset:0;width:100%;height:100%}
+.sky .spark{position:absolute;width:var(--s,22px);height:var(--s,22px);animation:tw 3.6s ease-in-out infinite,drift 14s ease-in-out infinite alternate;animation-delay:var(--d,0s)}
+@keyframes tw{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.08)}}
+@keyframes drift{to{translate:var(--dx,12px) var(--dy,-24px)}}
+.page{max-width:460px;margin:0 auto;padding:0 16px 34px}
+.bar{display:flex;justify-content:space-between;align-items:center;padding:18px 0 14px}
+.wm{display:flex;flex-direction:column;line-height:1}
+.wm b{font-weight:500;letter-spacing:.32em;font-size:18px}
+.wm small{font-size:8px;font-weight:600;letter-spacing:.5em;color:var(--mute);margin-top:5px}
+.k{font-size:12px;font-weight:600;color:var(--mute)}
+h1,h2{margin:0;line-height:1.15}
+p{margin:0}
+.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.shimmer{background:linear-gradient(90deg,#45f0e6,#8fb2ff,#d58af5,#f39bd6,#8fb2ff,#45f0e6);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 6s linear infinite}
+@keyframes shim{to{background-position:-200% 0}}
+.stack{display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.card h2{font-size:17px;font-weight:800;margin-bottom:12px}
+.btn{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:50px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--ink);font:700 15px Montserrat,sans-serif;text-decoration:none;cursor:pointer;transition:transform .15s}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--chip);border:0;color:#0a1462;font-weight:800;box-shadow:0 10px 30px rgba(120,190,255,.25)}
+.btn.primary::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);transform:translateX(-120%);animation:sweep 3.2s ease-in-out infinite 1s}
+@keyframes sweep{0%,60%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+.btn.white{background:#fff;color:#0a1462;border:0;font-weight:800}
+.btn svg{width:22px;height:22px;flex:none}
+.btn[disabled]{opacity:.6;pointer-events:none}
+:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.link{display:block;text-align:center;font-weight:700;font-size:14px;color:var(--ink);padding:10px;text-decoration:underline;text-underline-offset:3px}
+/* sign in */
+.hero{text-align:center;padding:10px 0 2px;position:relative}
+.hero .t{font-weight:800;line-height:.92;font-size:clamp(50px,15vw,68px)}
+.hero .t span{display:block;animation:rise .8s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:var(--d,0s)}
+.hero .t span.shimmer{animation:rise .8s cubic-bezier(.2,.8,.2,1) backwards,shim 6s linear infinite;animation-delay:var(--d,0s),0s}
+.hero .s{font-weight:800;font-size:15px;margin-top:8px;letter-spacing:.03em;animation:rise .8s .35s cubic-bezier(.2,.8,.2,1) backwards}
+.orbit{position:absolute;right:-6px;top:-8px;width:120px;pointer-events:none}
+.orbit path{stroke-dasharray:330;stroke-dashoffset:330;animation:draw 1.6s .5s ease-out forwards}
+.orbit use{transform-box:fill-box;transform-origin:center;animation:spin 1.2s .9s cubic-bezier(.2,1.5,.4,1) backwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes spin{from{transform:scale(0) rotate(-180deg);opacity:0}}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}}
+.cd{display:flex;gap:8px;justify-content:center;margin:18px 0 2px;animation:rise .8s .5s backwards}
+.cd .u{min-width:64px;padding:8px 6px 6px;border-radius:16px;background:rgba(4,10,51,.55);border:1px solid var(--line);text-align:center}
+.cd b{display:block;font-size:24px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.cd b.tick{animation:tick .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes tick{from{transform:translateY(-8px);opacity:.2}}
+.cd small{font-size:11px;color:var(--mute);font-weight:600}
+.cd .msg{padding:10px 16px;border-radius:999px;background:rgba(63,240,180,.14);color:#c9ffe9;font-weight:700;font-size:14px}
+.cd.mini{justify-content:flex-start;margin:10px 0 0;gap:6px;animation:none}
+.cd.mini .u{min-width:0;padding:5px 9px;border-radius:12px;display:flex;gap:4px;align-items:baseline}
+.cd.mini b{font-size:15px;display:inline}
+.cd.mini small{font-size:11px}
+.login{animation:rise .8s .6s cubic-bezier(.2,.8,.2,1) backwards}
+.login h1{font-size:21px;font-weight:800}
+.login .lead{color:var(--mute);font-size:14px;margin:6px 0 16px}
+.gis{display:flex;justify-content:center;min-height:44px}
+.or{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--dim);font-size:13px;font-weight:600}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+label{display:block;font-size:13px;font-weight:600;color:var(--mute);margin-bottom:6px}
+input{width:100%;min-height:50px;padding:12px 16px;border-radius:16px;border:1px solid var(--line);background:rgba(4,10,51,.6);color:var(--ink);font:16px Montserrat,sans-serif;transition:border-color .2s,box-shadow .2s}
+input:focus{border-color:#8fb2ff;box-shadow:0 0 0 4px rgba(143,178,255,.18);outline:none}
+input::placeholder{color:#7480bd}
+.login form .btn{margin-top:10px}
+.err{color:var(--bad);font-size:14px;font-weight:600;margin-top:10px;min-height:1.2em}
+.shake{animation:shake .45s}
+@keyframes shake{20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+.hint{font-size:12px;color:var(--dim);margin-top:12px;text-align:center}
+/* pass */
+.hello h1{font-size:27px;font-weight:800;animation:rise .7s backwards}
+.hello p{color:var(--mute);margin-top:6px;font-size:15px}
+.ticket{position:relative;filter:drop-shadow(0 26px 44px rgba(0,0,0,.45));transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .5s cubic-bezier(.2,.8,.2,1);touch-action:pan-y;animation:print 1s .1s cubic-bezier(.2,.8,.2,1) backwards}
+.ticket.drag{transition:none}
+@keyframes print{from{opacity:0;transform:perspective(900px) translateY(-40px) rotateX(24deg)}}
+.t-top,.t-stub{padding:20px;position:relative}
+.t-top::after,.t-stub::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;mix-blend-mode:screen;background:radial-gradient(circle at var(--mx,50%) var(--my,30%),rgba(255,255,255,.2),transparent 42%),linear-gradient(115deg,transparent 30%,rgba(69,240,230,.16) 44%,rgba(243,155,214,.18) 56%,transparent 70%);background-size:100% 100%,260% 100%;animation:holo 6s ease-in-out infinite}
+@keyframes holo{0%,100%{background-position:0 0,130% 0}50%{background-position:0 0,-30% 0}}
+.t-top{background:linear-gradient(165deg,#1c33c2 0%,#0d1a78 80%);border-radius:24px 24px 0 0;-webkit-mask:radial-gradient(circle 15px at 0 100%,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 100%,#0000 97%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 15px at 0 100%,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 100%,#0000 97%,#000) right/51% 100% no-repeat}
+.t-stub{background:linear-gradient(170deg,#0d1a78,#0a145e);border-radius:0 0 24px 24px;-webkit-mask:radial-gradient(circle 15px at 0 0,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 0,#0000 97%,#000) right/51% 100% no-repeat;mask:radial-gradient(circle 15px at 0 0,#0000 97%,#000) left/51% 100% no-repeat,radial-gradient(circle 15px at 100% 0,#0000 97%,#000) right/51% 100% no-repeat}
+.t-stub::before{content:"";position:absolute;left:20px;right:20px;top:0;border-top:2px dashed rgba(170,185,255,.4)}
+.t-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.chip{font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;background:var(--chip);color:#0a1462;white-space:nowrap}
+.t-name{font-weight:800;font-size:22px;line-height:1;margin-top:12px}
+.t-sub{font-size:12px;font-weight:800;letter-spacing:.03em;margin-top:5px}
+.qr{position:relative;z-index:2;display:block;background:#fff;border:0;border-radius:20px;padding:12px;margin:16px auto 4px;width:min(100%,270px);aspect-ratio:1;box-shadow:0 0 0 3px rgba(69,240,230,.35),0 0 46px rgba(69,240,230,.28);cursor:zoom-in}
+.qr canvas{display:block;width:100%;height:100%;border-radius:8px}
+.qr-hint{position:relative;z-index:2;text-align:center;font-size:12px;color:var(--mute);font-weight:600}
+.stamp{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-11deg);border:4px solid var(--ok);color:var(--ok);background:rgba(4,10,51,.92);font-weight:800;font-size:20px;line-height:1.15;padding:10px 16px;border-radius:14px;text-align:center;white-space:nowrap;animation:stampin .55s cubic-bezier(.2,1.6,.4,1) backwards}
+.stamp small{display:block;font-size:12px;color:#c9ffe9}
+@keyframes stampin{from{opacity:0;transform:translate(-50%,-50%) rotate(-30deg) scale(2.2)}}
+.who{position:relative;z-index:2;font-size:24px;font-weight:800;line-height:1.15}
+.who-sub{position:relative;z-index:2;color:var(--mute);font-size:14px;margin-top:3px}
+.idrow{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-top:14px}
+.idrow small{display:block;font-size:11px;color:var(--dim);font-weight:600}
+.code{font-weight:800;font-size:18px;letter-spacing:.07em;white-space:nowrap}
+.status{position:relative;z-index:2;display:flex;gap:10px;align-items:center;margin-top:14px;padding:11px 13px;border-radius:14px;background:rgba(255,255,255,.07);font-size:14px;font-weight:600}
+.status.in{background:rgba(63,240,180,.14);color:#c9ffe9}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);flex:none;animation:pulse 1.8s infinite}
+.status.in .dot{background:var(--ok);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(69,240,230,.6)}70%,100%{box-shadow:0 0 0 10px rgba(69,240,230,0)}}
+.bring{position:relative;border-radius:22px;padding:2px;background:var(--grad);background-size:200% 100%;animation:shim 8s linear infinite;box-shadow:0 12px 40px rgba(213,138,245,.25)}
+.bring>div{display:flex;gap:14px;align-items:flex-start;border-radius:20px;padding:16px;background:linear-gradient(160deg,#16248f,#0b1462)}
+.bring svg{flex:none;width:44px;height:44px;animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px) rotate(-3deg)}}
+.bring .lbl{display:inline-block;font-size:11px;font-weight:800;color:#0a1462;background:var(--chip);border-radius:999px;padding:2px 9px;margin-bottom:6px}
+.bring b{display:block;font-size:17px;font-weight:800;line-height:1.25}
+.bring p{font-size:14px;color:#d5dafa;margin-top:4px}
+.chk-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px}
+.chk-top h2{margin:0}
+.bar2{height:6px;border-radius:6px;background:rgba(255,255,255,.1);margin:8px 0 4px;overflow:hidden}
+.bar2 i{display:block;height:100%;border-radius:6px;background:var(--grad);transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.item{display:flex;gap:12px;align-items:center;width:100%;min-height:52px;padding:10px 12px;margin-top:8px;border-radius:14px;border:1px solid var(--line);background:rgba(4,10,51,.4);color:var(--ink);font:600 15px Montserrat,sans-serif;text-align:left;cursor:pointer;transition:background .2s,border-color .2s}
+.item small{display:block;font-size:12px;color:var(--mute);font-weight:500}
+.item .box{flex:none;width:26px;height:26px;border-radius:8px;border:2px solid #8fb2ff;display:grid;place-items:center;transition:background .2s,border-color .2s}
+.item .box svg{width:16px;height:16px}
+.item .box path{stroke-dasharray:20;stroke-dashoffset:20;transition:stroke-dashoffset .3s .05s}
+.item[aria-checked=true]{border-color:rgba(63,240,180,.5);background:rgba(63,240,180,.08)}
+.item[aria-checked=true] .box{background:var(--chip);border-color:transparent;animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+.item[aria-checked=true] .box path{stroke-dashoffset:0}
+@keyframes pop{50%{transform:scale(1.25)}}
+.r{display:grid;grid-template-columns:24px minmax(0,1fr);gap:12px;padding:11px 0;border-top:1px solid var(--line);font-size:15px;font-weight:600}
+.r:first-of-type{border-top:0;padding-top:0}
+.r svg{width:22px;height:22px;stroke:var(--cyan);margin-top:1px}
+.r small{display:block;color:var(--mute);font-size:13px;font-weight:500}
+.agenda{list-style:none;margin:0;padding:0;position:relative}
+.agenda::before{content:"";position:absolute;left:7px;top:8px;bottom:12px;width:2px;background:linear-gradient(#45f0e6,#d58af5);transform-origin:top;transform:scaleY(0);transition:transform 1s cubic-bezier(.2,.8,.2,1)}
+.agenda li{position:relative;padding:0 0 13px 28px;font-size:15px;font-weight:700;opacity:0;transform:translateX(-10px);transition:opacity .5s,transform .5s;transition-delay:calc(var(--i)*90ms + .15s)}
+.agenda li::before{content:"";position:absolute;left:0;top:4px;width:16px;height:16px;border-radius:50%;background:#0b1670;border:3px solid #8fb2ff}
+.agenda small{display:block;font-size:13px;color:var(--mute);font-weight:500}
+.in .agenda::before{transform:none}
+.in .agenda li{opacity:1;transform:none}
+.sp{display:flex;gap:12px;align-items:center;padding:8px;margin:0 -8px;border-radius:14px;transition:background .2s,transform .2s}
+.sp:hover,.sp:active{background:rgba(255,255,255,.06);transform:translateX(4px)}
+.av{flex:none;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;background:radial-gradient(circle at 30% 25%,#2b49e0,#0b1670);border:2px solid #8fb2ff}
+.sp b{display:block;font-size:15px;line-height:1.2}
+.sp span{display:block;font-size:13px;color:var(--mute)}
+.note{font-size:13px;color:var(--dim)}
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.8,.2,1),transform .7s cubic-bezier(.2,.8,.2,1)}
+.reveal.in{opacity:1;transform:none}
+/* not found */
+.nf-ic{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:rgba(255,198,92,.16);color:#ffc65c;font-size:26px;font-weight:800;margin-bottom:12px;animation:wobble 2.4s ease-in-out infinite}
+@keyframes wobble{25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+.nf h1{font-size:22px;font-weight:800}
+.nf .lead{color:var(--mute);font-size:15px;margin-top:6px}
+.acct{margin-top:14px;padding:11px 13px;border-radius:14px;background:rgba(4,10,51,.55);border:1px solid var(--line);font-size:14px;overflow-wrap:anywhere}
+.steps{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:16px}
+.steps b{display:block;font-size:15px}
+.steps p{font-size:14px;color:var(--mute);margin-top:3px}
+.steps .btn{margin-top:10px}
+.loading{padding:90px 0;text-align:center;color:var(--mute)}
+.loading svg{width:46px;height:46px;display:block;margin:0 auto 14px;animation:spinstar 1.4s cubic-bezier(.5,0,.5,1) infinite}
+@keyframes spinstar{50%{transform:rotate(180deg) scale(.7)}100%{transform:rotate(360deg)}}
+.demo{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-size:13px;background:rgba(255,198,92,.12);border:1px solid rgba(255,198,92,.38);color:#ffe2a8;border-radius:14px;padding:10px 12px;margin-bottom:16px}
+.demo a{color:#ffe2a8;font-weight:700}
+footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--dim);display:grid;gap:6px}
+footer a,footer button{color:var(--ink);font:700 13px Montserrat,sans-serif;background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+/* overlays */
+.ov{position:fixed;inset:0;z-index:30;background:rgba(2,6,35,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px;animation:fade .25s}
+@keyframes fade{from{opacity:0}}
+.ov .in{width:min(400px,100%);text-align:center;animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+.ov img{width:100%;border-radius:18px;display:block;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.ov p{color:var(--mute);font-size:14px;margin:12px 0}
+.scanmode{background:#fff;color:#0a1462;backdrop-filter:none}
+.scanmode .in{display:grid;gap:10px;justify-items:center}
+.scanmode canvas{width:min(84vw,62vh,420px);height:min(84vw,62vh,420px);animation:zoomin .4s cubic-bezier(.2,1.3,.4,1)}
+@keyframes zoomin{from{transform:scale(.6);opacity:0}}
+.scanmode b{font-size:22px;font-weight:800}
+.scanmode .code{color:#1636d8}
+.scanmode p{color:#454d70;margin:0}
+.scanmode .btn{background:#0a1462;color:#fff;border:0;max-width:260px}
+.pv .in{background:linear-gradient(170deg,#0e1c86,#08115a);border:1px solid var(--line);border-radius:22px;padding:20px;text-align:left}
+.pv h3{margin:0;font-size:18px;font-weight:800}
+.pv p{color:var(--mute);margin:6px 0 14px;font-size:14px}
+.pv .btn{margin-top:8px}
+.banner{position:fixed;left:50%;top:14px;z-index:45;transform:translateX(-50%);width:min(430px,calc(100% - 24px));padding:14px 18px;border-radius:18px;background:var(--chip);color:#0a1462;font-weight:800;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.4);animation:drop .6s cubic-bezier(.2,1.4,.4,1)}
+@keyframes drop{from{transform:translate(-50%,-140%)}}
+.tsp{position:fixed;left:0;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;pointer-events:none;z-index:46;animation:fly .7s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes fly{to{transform:translate(var(--tx),var(--ty)) scale(.2) rotate(120deg);opacity:0}}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:40}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.reveal,.agenda li{opacity:1;transform:none}.agenda::before{transform:none}.orbit path{stroke-dashoffset:0}}
+</style>
+</head>
+<body>
+<div class="sky" aria-hidden="true">
+  <svg viewBox="0 0 400 860" preserveAspectRatio="xMidYMid slice">
+    <defs><linearGradient id="sw" x1="0" x2="1"><stop offset="0" stop-color="#45f0e6"/><stop offset=".5" stop-color="#8fb2ff"/><stop offset="1" stop-color="#f39bd6"/></linearGradient><filter id="bl"><feGaussianBlur stdDeviation="10"/></filter></defs>
+    <g fill="none" stroke="url(#sw)" stroke-linecap="round">
+      <path d="M-40 640 C 90 630 200 730 300 900" stroke-width="28" opacity=".2" filter="url(#bl)"/>
+      <path d="M-40 640 C 90 630 200 730 300 900" stroke-width="3" opacity=".7"/>
+      <path d="M440 30 C 330 170 300 420 440 700" stroke-width="30" opacity=".18" filter="url(#bl)"/>
+      <path d="M440 30 C 330 170 300 420 440 700" stroke-width="2.5" opacity=".55"/>
+    </g>
+  </svg>
+  <svg class="spark" style="left:6%;top:18%;--s:18px" viewBox="-1 -1 2 2"><use href="#star"/></svg>
+  <svg class="spark" style="right:7%;top:46%;--s:28px;--d:1.2s;--dx:-14px;--dy:30px" viewBox="-1 -1 2 2"><use href="#star"/></svg>
+  <svg class="spark" style="left:44%;bottom:7%;--s:14px;--d:2.1s;--dx:20px" viewBox="-1 -1 2 2"><use href="#star"/></svg>
+  <svg class="spark" style="left:16%;top:70%;--s:10px;--d:.7s;--dy:-40px" viewBox="-1 -1 2 2"><use href="#star"/></svg>
+  <svg class="spark" style="right:22%;top:8%;--s:12px;--d:1.8s;--dx:-20px" viewBox="-1 -1 2 2"><use href="#star"/></svg>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="sg"><stop offset="0" stop-color="#fff"/><stop offset=".45" stop-color="#bfe9ff"/><stop offset="1" stop-color="#7aa8ff"/></radialGradient>
+  <path id="star" fill="url(#sg)" d="M0 -1 C.1 -.1 .1 -.1 1 0 C.1 .1 .1 .1 0 1 C-.1 .1 -.1 .1 -1 0 C-.1 -.1 -.1 -.1 0 -1Z"/>
+</defs></svg>
+
+<div class="page">
+  <header class="bar">
+    <span class="wm" aria-label="MOKRA Consulting"><b>MOKRA</b><small>CONSULTING</small></span>
+    <span class="k">Beyond Strategy · 12 Dec</span>
+  </header>
+  <div id="demo"></div>
+  <main id="app"></main>
+  <footer id="foot"></footer>
+</div>
+<div class="ov" id="ov" hidden></div>
+<div id="bannerSlot"></div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+'use strict';
+/* ---------- hosting: fill these in ONLY for the GitHub Pages copy; leave both empty on Apps Script ---------- */
+// The Attendee link of the Pass project (Apps Script deployment A, ends in /exec).
+const API_URL = 'https://script.google.com/macros/s/AKfycbzU5JQLx0EvGkJl9qajUiFaNt8356S_cXX9T6HTUQqUzrruQydVpbmNzVYVfVPabgtQoA/exec';
+// Google Cloud OAuth client ID, for Google's own "Sign in with Google" button and quick sign-in popup.
+// Leave empty and the Google button opens the Apps Script Google sign-in instead.
+const GOOGLE_CLIENT_ID = '';
+
+/* ---------- event content (edit here) ---------- */
+const EVENT = {
+  name: 'Beyond Strategy: Consulting & Career Lab',
+  date: 'Saturday 12 December 2026', time: '11.00–17.30',
+  start: '2026-12-12T11:00:00+07:00', end: '2026-12-12T17:30:00+07:00',
+  place: '9th Floor, Lecturer Room', building: 'Professor M.L. Pin Malakul, SWU Services Building',
+  contact: 'mokraconsulting@gmail.com',
+  gcal: 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Beyond%20Strategy%3A%20Consulting%20%26%20Career%20Lab&dates=20261212T040000Z%2F20261212T103000Z&location=9th%20Floor%2C%20Lecturer%20Room%2C%20Professor%20M.L.%20Pin%20Malakul%2C%20SWU%20Services%20Building&details=Bring%20your%20entry%20QR%20code%20and%20your%20laptop%20or%20tablet.'
+};
+const SPEAKERS = [
+  ['Kridbhume Chammanard', 'Associate Consultant, Bain & Company'],
+  ['Somboon Sukkham', 'Strategy, Thanachart · Ex-BCG'],
+  ['Thanawat Pongpandecha', 'M&A Associate, Fontis Asia'],
+  ['Patcharapon Korsurat', 'Consultant · Ex-PwC Thailand, Ex-MT']
+];
+const AGENDA = [
+  ['Fireside chat', 'Career paths and first-job lessons from all four speakers, with anonymous Q&A'],
+  ['Consulting workshop', 'Working a case from situation analysis to recommendation'],
+  ['Lunch & free time', ''],
+  ['How AI is changing consulting', 'AI shortcuts for case work, with live demos'],
+  ['Case challenge', 'Teams crack a consulting case and present to the judges'],
+  ['Closing', '']
+];
+const PACK = [
+  ['pass', 'This entry pass', 'On your phone, or saved to your photos'],
+  ['laptop', 'Laptop or tablet', 'Highly recommended for the hands-on sessions'],
+  ['charger', 'Charger', 'It is a full afternoon'],
+  ['q', 'A question for the speakers', 'For the fireside chat Q&A']
+];
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtTime = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }); };
+const initials = n => String(n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+const firstName = n => String(n || '').trim().split(/\s+/)[0] || 'there';
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }, del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+const hasGAS = () => typeof google !== 'undefined' && google.script && google.script.run;
+const DEMO = !hasGAS() && !API_URL;
+const GIS_ON = !hasGAS() && !!API_URL && !!GOOGLE_CLIENT_ID;
+const S = { mode: 'none', email: '', googleUrl: '', data: null, demoGoogle: '' };
+const STAR = '<svg viewBox="-1 -1 2 2" aria-hidden="true"><use href="#star"/></svg>';
+
+/* ---------- server ---------- */
+function server(fn, arg) {
+  if (hasGAS()) return new Promise((res, rej) => {
+    const run = google.script.run
+      .withSuccessHandler(r => (r && r.ok) ? res(r.data) : rej(new Error((r && r.error) || 'Something went wrong')))
+      .withFailureHandler(e => rej(new Error((e && e.message) || 'Could not reach the server')));
+    if (arg === undefined) run[fn](); else run[fn](arg);
+  });
+  if (API_URL) return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: fn, arg: arg === undefined ? '' : arg }) })
+    .then(r => r.json(), () => { throw new Error('Could not reach the guest list. Check your connection and try again.'); })
+    .then(r => { if (!r || !r.ok) throw new Error((r && r.error) || 'Something went wrong'); return r.data; });
+  return mockServer(fn, arg);
+}
+
+/* ---------- Google's own Sign in with Google (GitHub Pages copy only) ---------- */
+let gisReady = null;
+function loadGIS() {
+  if (!GIS_ON) return Promise.resolve(false);
+  if (!gisReady) gisReady = new Promise(res => {
+    const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+    sc.onload = () => { try { google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogleCredential, auto_select: false, cancel_on_tap_outside: true }); res(true); } catch (e) { res(false); } };
+    sc.onerror = () => res(false);
+    document.head.appendChild(sc);
+  });
+  return gisReady;
+}
+function mountGIS(withPrompt) {
+  const els = document.querySelectorAll('[data-gis]'); if (!els.length) return;
+  loadGIS().then(ok => {
+    els.forEach(el => {
+      if (!el.isConnected) return;
+      if (!ok) { el.outerHTML = S.googleUrl ? `<a class="btn white" href="${esc(S.googleUrl)}" target="_top">${GICON}Continue with Google</a>` : '<p class="note">Google sign-in is unavailable right now. Please type your email below.</p>'; return; }
+      google.accounts.id.renderButton(el, { type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text: el.dataset.gis, logo_alignment: 'center', width: Math.min(400, Math.max(220, el.clientWidth || 320)) });
+    });
+    if (ok && withPrompt) { try { google.accounts.id.prompt(); } catch (e) {} }
+  });
+}
+async function onGoogleCredential(resp) {
+  renderLoading('Checking your registration…');
+  try {
+    const d = await server('getPassByGoogle', resp && resp.credential);
+    S.mode = 'google';
+    if (d.found) { store.set('bs26-pass-email', d.email); store.set('bs26-pass-mode', 'google'); }
+    show(d, true);
+  } catch (e) { S.mode = 'none'; S.data = null; renderLogin(e.message); renderFoot(); }
+}
+/* preview only: sample guests kept in this browser (shared with the desk preview) */
+const SAMPLE = [
+  ['Ploy Srisuk', 'ploy.s@example.com', '', 'Chulalongkorn University', 'Commerce and Accountancy', '3', 'Participant', '', ''],
+  ['Tanakorn Wongsa', 'tanakorn.w@example.com', '', 'Thammasat University', 'Economics', '4', 'Participant', '11:09', 'Mint'],
+  ['Natcha Boonmee', 'natcha.b@example.com', '', 'Srinakharinwirot University', 'Business Administration', '2', 'Participant', '', ''],
+  ['Kittipat Charoen', 'kittipat.c@example.ac.th', 'kittipat.c@example.com', 'Mahidol University International College', 'Business Economics', '3', 'Participant', '', ''],
+  ['Wei Lam', 'wei.lam@example.com', '', 'The University of Hong Kong', 'Finance', '2', 'Partner club', '11:12', 'Beam'],
+  ['Pimchanok Rattana', 'pimchanok.r@example.com', '', 'Kasetsart University', 'Economics', '4', 'Participant', '', ''],
+  ['Siwakorn Meesuk', 'siwakorn.m@example.com', '', 'Chulalongkorn University', 'Engineering', '3', 'Participant', '', ''],
+  ['Arisa Thongdee', 'arisa.t@example.com', '', 'Srinakharinwirot University', 'Economics', '1', 'Committee', '11:02', 'Mint'],
+  ['Jirayu Somchai', 'jirayu.s@example.com', '', 'Thammasat University', 'Political Science', '2', 'Participant', '', ''],
+  ['Benjamas Kaew', 'benjamas.k@example.com', '', 'Mahidol University International College', 'Marketing', '4', 'Participant', '', '']
+];
+const IDS = ['BS26-K7Q2XM', 'BS26-H4WN8R', 'BS26-P9TC3D', 'BS26-B2LV6S', 'BS26-M8ZQ4K', 'BS26-R3YF7N', 'BS26-T6GJ2W', 'BS26-C5XD9P', 'BS26-N2HK8V', 'BS26-W7RB3Q'];
+function mockDB() {
+  let d = store.get('bs26-demo2');
+  if (!Array.isArray(d)) {
+    d = SAMPLE.map((s, i) => { const at = s[7] ? new Date('2026-12-12T' + s[7] + ':00+07:00').toISOString() : '';
+      return { id: IDS[i], name: s[0], email: s[1], googleEmail: s[2], phone: '08' + (31000000 + i * 4730021), university: s[3], faculty: s[4], year: s[5], type: s[6], notes: '', checkedIn: !!s[7], checkedInAt: at, checkedInBy: s[8], updatedAt: at }; });
+    store.set('bs26-demo2', d);
+  }
+  return d;
+}
+async function mockServer(fn, arg) {
+  await new Promise(r => setTimeout(r, 450));
+  const email = fn === 'getMyPass' ? S.demoGoogle : String(arg || '').trim().toLowerCase();
+  if (fn === 'getPassByEmail' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Please enter a valid email address.');
+  const g = email ? mockDB().find(x => x.email === email || x.googleEmail === email) : null;
+  return { mode: fn === 'getMyPass' ? (email ? 'google' : 'none') : 'email', email, found: !!g, googleUrl: '',
+    guest: g ? { id: g.id, name: g.name, university: g.university, faculty: g.faculty, type: g.type, checkedIn: g.checkedIn, checkedInAt: g.checkedInAt } : null };
+}
+if (DEMO) $('#demo').innerHTML = '<div class="demo"><span>Preview with sample guests. In the live app, <b>Continue with Google</b> opens Google&#39;s own sign-in; here it lets you pick a sample outcome. Or type <b>ploy.s@example.com</b>.</span><a href="desk.html">Open the committee desk preview</a></div>';
+
+/* ---------- countdown ---------- */
+const T0 = new Date(EVENT.start).getTime(), T1 = new Date(EVENT.end).getTime();
+function cdHTML(mini) { return `<div class="cd${mini ? ' mini' : ''}" data-cd aria-live="off"></div>`; }
+function tickCountdown() {
+  const now = Date.now();
+  document.querySelectorAll('[data-cd]').forEach(el => {
+    if (now >= T1) { if (el.dataset.state !== 'after') { el.dataset.state = 'after'; el.innerHTML = '<span class="msg">Thank you for joining Beyond Strategy!</span>'; } return; }
+    if (now >= T0) { if (el.dataset.state !== 'now') { el.dataset.state = 'now'; el.innerHTML = '<span class="msg">Happening now · 9th floor, SWU Services Building</span>'; } return; }
+    let s = Math.floor((T0 - now) / 1000);
+    const vals = [Math.floor(s / 86400), Math.floor(s % 86400 / 3600), Math.floor(s % 3600 / 60), s % 60];
+    const labels = el.classList.contains('mini') ? ['d', 'h', 'm', 's'] : ['days', 'hours', 'mins', 'secs'];
+    if (el.dataset.state !== 'before') { el.dataset.state = 'before'; el.innerHTML = labels.map(l => `<div class="u"><b>0</b><small>${l}</small></div>`).join(''); }
+    el.querySelectorAll('b').forEach((b, i) => {
+      const v = i ? String(vals[i]).padStart(2, '0') : String(vals[i]);
+      if (b.textContent !== v) { b.textContent = v; b.classList.remove('tick'); void b.offsetWidth; b.classList.add('tick'); }
+    });
+  });
+}
+setInterval(tickCountdown, 1000);
+
+/* ---------- QR ---------- */
+function rr(x, X, Y, W, H, R) { x.beginPath(); x.moveTo(X + R, Y); x.arcTo(X + W, Y, X + W, Y + H, R); x.arcTo(X + W, Y + H, X, Y + H, R); x.arcTo(X, Y + H, X, Y, R); x.arcTo(X, Y, X + W, Y, R); x.closePath(); }
+function qrModel(text) {
+  if (typeof qrcode !== 'function') return null;
+  const q = qrcode(0, 'H'); q.addData(text); q.make();
+  const n = q.getModuleCount(), cells = [];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) cells.push([r, c]);
+  cells.sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
+  return { n, cells };
+}
+function badge(ctx, x, y, size) {
+  const b = Math.round(size * 0.18), bx = x + (size - b) / 2, by = y + (size - b) / 2;
+  ctx.fillStyle = '#fff'; rr(ctx, bx - 4, by - 4, b + 8, b + 8, b * 0.28); ctx.fill();
+  const g = ctx.createLinearGradient(bx, by, bx + b, by + b); g.addColorStop(0, '#1636d8'); g.addColorStop(1, '#0a1462');
+  ctx.fillStyle = g; rr(ctx, bx, by, b, b, b * 0.24); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = '800 ' + Math.round(b * 0.56) + 'px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('M', x + size / 2, y + size / 2 + b * 0.03);
+}
+function paintQR(ctx, text, x, y, size, upto) {
+  const m = qrModel(text);
+  ctx.fillStyle = '#fff'; ctx.fillRect(x, y, size, size);
+  if (!m) { ctx.fillStyle = '#0a1462'; ctx.font = '800 ' + Math.round(size / 11) + 'px Montserrat, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + size / 2, y + size / 2); return; }
+  const cell = Math.floor(size / m.n), off = Math.floor((size - cell * m.n) / 2);
+  ctx.fillStyle = '#0a1462'; m.cells.forEach(([r, c]) => ctx.fillRect(x + off + c * cell, y + off + r * cell, cell, cell));
+  badge(ctx, x, y, size);
+}
+function sizeCanvas(canvas, fallback) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3), size = Math.round((canvas.clientWidth || fallback) * dpr);
+  canvas.width = size; canvas.height = size; return size;
+}
+// draws the QR as a diagonal wipe, like it is being printed
+function animateQR(canvas, text) {
+  const size = sizeCanvas(canvas, 240), ctx = canvas.getContext('2d'), m = qrModel(text);
+  if (!m || reduced) { paintQR(ctx, text, 0, 0, size); return; }
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+  const cell = Math.floor(size / m.n), off = Math.floor((size - cell * m.n) / 2), per = Math.ceil(m.cells.length / 36);
+  let i = 0;
+  const step = () => {
+    ctx.fillStyle = '#0a1462';
+    for (const end = Math.min(i + per, m.cells.length); i < end; i++) { const [r, c] = m.cells[i]; ctx.fillRect(off + c * cell, off + r * cell, cell, cell); }
+    if (i < m.cells.length) requestAnimationFrame(step); else badge(ctx, 0, 0, size);
+  };
+  setTimeout(() => requestAnimationFrame(step), 500);
+}
+
+/* ---------- effects ---------- */
+function confetti() {
+  if (reduced) return;
+  const cv = $('#confetti'), ctx = cv.getContext('2d'), W = cv.width = innerWidth, H = cv.height = innerHeight;
+  const cols = ['#45f0e6', '#8fb2ff', '#d58af5', '#f39bd6', '#ffffff'];
+  const ps = Array.from({ length: 130 }, () => ({ x: W / 2 + (Math.random() - .5) * 60, y: H * .38, vx: (Math.random() - .5) * 13, vy: -Math.random() * 14 - 4, s: 4 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: cols[Math.floor(Math.random() * cols.length)] }));
+  const t0 = performance.now();
+  const step = now => { ctx.clearRect(0, 0, W, H);
+    ps.forEach(p => { p.vy += .4; p.x += p.vx; p.y += p.vy; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore(); });
+    if (now - t0 < 2600) requestAnimationFrame(step); else ctx.clearRect(0, 0, W, H); };
+  requestAnimationFrame(step);
+}
+function burst(x, y, n) {
+  if (reduced) return;
+  for (let i = 0; i < n; i++) {
+    const a = (Math.PI * 2 * i) / n + Math.random() * .5, d = 26 + Math.random() * 26;
+    const el = document.createElement('div'); el.className = 'tsp'; el.innerHTML = STAR;
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.setProperty('--tx', Math.cos(a) * d + 'px'); el.style.setProperty('--ty', Math.sin(a) * d + 'px');
+    document.body.appendChild(el); setTimeout(() => el.remove(), 750);
+  }
+}
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('input,select,textarea,.ticket,.ov')) return;
+  burst(e.clientX, e.clientY, 6);
+});
+function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+function banner(text) {
+  const slot = $('#bannerSlot'); slot.innerHTML = `<div class="banner" role="status">${esc(text)}</div>`;
+  clearTimeout(banner.t); banner.t = setTimeout(() => { slot.innerHTML = ''; }, 4200);
+}
+let revealObs = null;
+function reveals() {
+  const els = document.querySelectorAll('.reveal:not(.in)');
+  if (!('IntersectionObserver' in window) || reduced) { els.forEach(e => e.classList.add('in')); return; }
+  if (revealObs) revealObs.disconnect();
+  revealObs = new IntersectionObserver(es => es.forEach(en => { if (en.isIntersecting) { en.target.classList.add('in'); revealObs.unobserve(en.target); } }), { threshold: .15 });
+  els.forEach(e => revealObs.observe(e));
+}
+// holographic tilt: follows a finger or mouse across the ticket
+function bindTilt(t) {
+  if (!t || reduced) return;
+  const move = e => {
+    const r = t.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+    t.style.setProperty('--ry', ((px - .5) * 14).toFixed(2) + 'deg'); t.style.setProperty('--rx', ((.5 - py) * 10).toFixed(2) + 'deg');
+    t.querySelectorAll('.t-top,.t-stub').forEach(p => { const pr = p.getBoundingClientRect(); p.style.setProperty('--mx', ((e.clientX - pr.left) / pr.width * 100).toFixed(1) + '%'); p.style.setProperty('--my', ((e.clientY - pr.top) / pr.height * 100).toFixed(1) + '%'); });
+  };
+  const reset = () => { t.classList.remove('drag'); t.style.setProperty('--rx', '0deg'); t.style.setProperty('--ry', '0deg'); };
+  t.addEventListener('pointermove', e => { t.classList.add('drag'); move(e); });
+  t.addEventListener('pointerleave', reset); t.addEventListener('pointerup', reset); t.addEventListener('pointercancel', reset);
+}
+
+/* ---------- views: sign in ---------- */
+const GICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1.2-3.6 4-5 7-5s5.8 1.4 7 5"/></svg>';
+// "Continue with Google" opens deployment B of this project. Apps Script itself then shows Google's own
+// sign-in (and, the first time, Google's permission screen) before the page loads; nothing here imitates it.
+// "Switch account" sends people through Google's account picker page first, then back to deployment B.
+function chooserUrl() { return 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(S.googleUrl); }
+function googleButton(label, switching) {
+  if (GIS_ON) return `<div class="gis" data-gis="${switching ? 'signin_with' : 'continue_with'}"></div>`;
+  if (S.googleUrl) return `<a class="btn white" href="${esc(switching ? chooserUrl() : S.googleUrl)}" target="_top" data-act="gonav">${GICON}${esc(label)}</a>`;
+  if (DEMO) return `<button type="button" class="btn white" data-act="gdemo">${GICON}${esc(label)}</button>`;
+  return '';
+}
+function renderLogin(msg, prefill) {
+  const g = googleButton('Continue with Google');
+  $('#app').innerHTML = `
+  <div class="stack">
+    <section class="hero">
+      <svg class="orbit" viewBox="0 0 120 90" aria-hidden="true"><defs><linearGradient id="og" x1="0" x2="1"><stop offset="0" stop-color="#45f0e6"/><stop offset="1" stop-color="#f39bd6"/></linearGradient></defs>
+        <path d="M6 84 C 50 80 118 44 104 14 C 96 -2 70 4 58 14" fill="none" stroke="url(#og)" stroke-width="3.5" stroke-linecap="round"/>
+        <use href="#star" transform="translate(40 30) scale(15)"/></svg>
+      <div class="t"><span style="--d:.05s">BEYOND</span><span class="shimmer" style="--d:.18s">STRATEGY</span></div>
+      <div class="s">CONSULTING &amp; CAREER LAB</div>
+      ${cdHTML(false)}
+    </section>
+    <section class="card login">
+      <h1>Get your entry pass</h1>
+      <p class="lead">Selected for the lab? Sign in to see your personal QR code for registration on the day.</p>
+      ${g}
+      ${g ? '<div class="or">or use your email</div>' : ''}
+      <form id="ef" novalidate>
+        <label for="em">Email you registered with</label>
+        <input id="em" type="email" inputmode="email" autocomplete="email" placeholder="you@university.ac.th" value="${esc(prefill || '')}">
+        <button class="btn primary" id="eb">Show my pass</button>
+        <p class="err" id="ee" role="alert">${esc(msg || '')}</p>
+      </form>
+      <p class="hint">Use the same email as on the registration form.</p>
+    </section>
+  </div>`;
+  tickCountdown();
+  mountGIS(true);
+  $('#ef').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = $('#em').value.trim(), b = $('#eb'), err = $('#ee');
+    const fail = m => { err.textContent = m; const c = $('.login'); c.classList.remove('shake'); void c.offsetWidth; c.classList.add('shake'); vibrate([40, 40, 40]); };
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Please enter the email you registered with.');
+    b.disabled = true; b.textContent = 'Finding your pass…'; err.textContent = '';
+    try {
+      const d = await server('getPassByEmail', email);
+      if (!d.found) { b.disabled = false; b.textContent = 'Show my pass'; return fail(`We couldn't find ${d.email} on the confirmed list. Check the spelling, or use the email from your registration form.`); }
+      S.mode = 'email'; store.set('bs26-pass-email', d.email); store.set('bs26-pass-mode', 'email'); show(d, true);
+    } catch (er) { b.disabled = false; b.textContent = 'Show my pass'; fail(er.message); }
+  });
+}
+
+/* preview only: this page cannot sign anyone in to Google, so it says so and lets you pick an outcome */
+function openChooser() {
+  const ov = $('#ov'); ov.className = 'ov pv';
+  ov.innerHTML = `<div class="in" role="dialog" aria-label="Preview of Google sign-in"><h3>Preview only</h3>
+    <p>In the live app this button opens Google's own sign-in, run by Google Apps Script. This preview can't sign in to Google, so pick what happens next:</p>
+    <button class="btn primary" data-pick="ploy.s@example.com">Signed in as a confirmed guest</button>
+    <button class="btn" data-pick="tanakorn.w@example.com">Signed in, already checked in</button>
+    <button class="btn" data-pick="someone.else@gmail.com">Signed in, not on the list</button>
+    <button class="btn" data-act="closeov">Cancel</button></div>`;
+  ov.hidden = false;
+}
+
+/* ---------- views: pass ---------- */
+const ICON = {
+  laptop: '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#45f0e6"/><stop offset="1" stop-color="#f39bd6"/></linearGradient></defs><rect x="8" y="10" width="32" height="21" rx="3" stroke="url(#lg)" stroke-width="3"/><path d="M3 37h42" stroke="url(#lg)" stroke-width="3.5" stroke-linecap="round"/><path d="M20 20l3 3 6-6" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  tick: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="#0a1462" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+function statusHTML(g) {
+  return g.checkedIn
+    ? `<div class="status in" id="st"><span class="dot"></span>Checked in at ${esc(fmtTime(g.checkedInAt))}. Welcome to the lab!</div>`
+    : `<div class="status" id="st"><span class="dot"></span>Show this QR at the registration desk</div>`;
+}
+function stampHTML(g) { return g.checkedIn ? `<div class="stamp">CHECKED IN<small>${esc(fmtTime(g.checkedInAt))} · 12 Dec</small></div>` : ''; }
+function packKey() { return 'bs26-pack-' + (S.data && S.data.guest ? S.data.guest.id : ''); }
+function packHTML() {
+  const done = Object.assign({ pass: true }, store.get(packKey()) || {}), n = PACK.filter(p => done[p[0]]).length;
+  return `<div class="chk-top"><h2>Pack your bag</h2><span class="k" id="pk">${n} of ${PACK.length} ready</span></div>
+    <div class="bar2"><i id="pkbar" style="width:${n / PACK.length * 100}%"></i></div>
+    ${PACK.map(p => `<button type="button" class="item" role="checkbox" aria-checked="${!!done[p[0]]}" data-pack="${p[0]}"><span class="box">${ICON.tick}</span><span>${esc(p[1])}<small>${esc(p[2])}</small></span></button>`).join('')}`;
+}
+
+function renderPass(fresh) {
+  const g = S.data.guest;
+  $('#app').innerHTML = `
+  <div class="stack">
+    <div class="hello">
+      <h1>You're in, <span class="shimmer">${esc(firstName(g.name))}</span>.</h1>
+      <p>This is your personal entry pass. Our committee will scan it when you arrive.</p>
+      ${cdHTML(true)}
+    </div>
+    <article class="ticket" id="ticket" aria-label="Entry pass">
+      <div class="t-top">
+        <div class="t-head"><span class="k">MOKRA Consulting presents</span><span class="chip">${esc(g.type || 'Participant')}</span></div>
+        <div class="t-name">BEYOND <span class="grad">STRATEGY</span></div>
+        <div class="t-sub">CONSULTING &amp; CAREER LAB</div>
+        <button class="qr" data-act="bigqr" aria-label="Show QR full screen"><canvas id="qrc"></canvas><span id="stampSlot">${stampHTML(g)}</span></button>
+        <div class="qr-hint">Tap the code to show it full screen</div>
+      </div>
+      <div class="t-stub">
+        <div class="who">${esc(g.name)}</div>
+        <div class="who-sub">${esc([g.university, g.faculty].filter(Boolean).join(' · '))}</div>
+        <div class="idrow"><div><small>Pass ID</small><span class="code">${esc(g.id)}</span></div><div style="text-align:right"><small>Sat 12 Dec 2026</small><b style="font-size:15px">${esc(EVENT.time)}</b></div></div>
+        ${statusHTML(g)}
+      </div>
+    </article>
+    <div class="two">
+      <button class="btn primary" data-act="bigqr">Show to scanner</button>
+      <button class="btn" data-act="saveimg">Save pass</button>
+    </div>
+    <section class="bring reveal" aria-label="What to bring"><div>${ICON.laptop}
+      <div><span class="lbl">Highly recommended</span><b>Bring your own laptop or tablet</b>
+      <p>Beyond Strategy is practical and highly interactive: you'll work hands-on in the workshops and build your team's answer in the case challenge. Please charge it before you come.</p></div>
+    </div></section>
+    <section class="card reveal" id="pack">${packHTML()}</section>
+    <section class="card reveal">
+      <h2>The day</h2>
+      <div class="r">${ICON.cal}<div>${esc(EVENT.date)}<small><a href="${esc(EVENT.gcal)}" target="_blank" rel="noopener" style="color:var(--ink);font-weight:700">Add to Google Calendar</a></small></div></div>
+      <div class="r">${ICON.clock}<div>${esc(EVENT.time)}<small>Arrive a little early to register</small></div></div>
+      <div class="r">${ICON.pin}<div>${esc(EVENT.place)}<small>${esc(EVENT.building)}</small></div></div>
+    </section>
+    <section class="card reveal">
+      <h2>What's on</h2>
+      <ol class="agenda">${AGENDA.map((a, i) => `<li style="--i:${i}">${esc(a[0])}${a[1] ? `<small>${esc(a[1])}</small>` : ''}</li>`).join('')}</ol>
+      <p class="note">Draft running order; timings are shared on the day.</p>
+    </section>
+    <section class="card reveal">
+      <h2>Your speakers</h2>
+      ${SPEAKERS.map(s => `<div class="sp"><div class="av">${esc(initials(s[0]))}</div><div><b>${esc(s[0])}</b><span>${esc(s[1])}</span></div></div>`).join('')}
+    </section>
+  </div>`;
+  tickCountdown();
+  requestAnimationFrame(() => animateQR($('#qrc'), g.id));
+  bindTilt($('#ticket'));
+  reveals();
+  if (fresh) { vibrate(30); setTimeout(() => burst(innerWidth / 2, 260, 10), 700); }
+}
+
+function renderNotFound() {
+  const g = googleButton('Switch Google account', true);
+  $('#app').innerHTML = `
+  <div class="stack">
+    <section class="hero"><div class="t"><span style="--d:.05s">BEYOND</span><span class="shimmer" style="--d:.18s">STRATEGY</span></div><div class="s">CONSULTING &amp; CAREER LAB</div></section>
+    <section class="card nf login">
+      <div class="nf-ic">?</div>
+      <h1>We couldn't find a pass for this account</h1>
+      <p class="lead">Entry passes are only for confirmed participants, matched to the email used on the registration form.</p>
+      <div class="acct">Signed in with Google as <b>${esc(S.data.email)}</b></div>
+      <ol class="steps">
+        <li><b>Registered with a different email?</b><p>Choose another Google account, or type the email you registered with.</p>
+          ${g}<button class="btn" data-act="useemail" style="margin-top:10px">Type my email instead</button></li>
+        <li><b>Registered with a university or non-Gmail email?</b><p>Type it in with "Type my email instead". If that doesn't work, email ${esc(EVENT.contact)} with your full name and the email you registered with.</p></li>
+        <li><b>Not on the confirmed list?</b><p>Results were announced on 2 December 2026. Thank you for applying; we hope to see you at a future MOKRA event.</p></li>
+      </ol>
+    </section>
+  </div>`;
+  mountGIS(false);
+}
+
+function renderError(msg) {
+  $('#app').innerHTML = `<section class="card nf login"><h1>Couldn't load your pass</h1><p class="lead">${esc(msg)}</p><p class="lead">Check your connection and try again. If it keeps happening, email ${esc(EVENT.contact)}.</p><button class="btn primary" style="margin-top:16px" data-act="retry">Try again</button></section>`;
+}
+
+function renderLoading(text) {
+  $('#app').innerHTML = `<div class="loading">${STAR}${esc(text || 'Checking your registration…')}</div>`;
+}
+
+function renderFoot() {
+  let who = '';
+  if (S.data && S.data.found && S.mode === 'email') who = `<span>Signed in as ${esc(S.data.email)} · <button data-act="signout">Sign out</button></span>`;
+  else if (S.data && S.mode === 'google' && !hasGAS() && !DEMO) who = `<span>Signed in with Google as ${esc(S.data.email)} · <button data-act="signout">Sign out</button></span>`;
+  else if (S.data && S.mode === 'google') who = `<span>Signed in with Google as ${esc(S.data.email)} · ${S.googleUrl ? `<a href="${esc(chooserUrl())}" target="_top">Switch account</a>` : DEMO ? '<button data-act="gdemo">Switch account</button>' : ''} · <button data-act="useemail">Use email instead</button></span>`;
+  $('#foot').innerHTML = who + `<span>Presented by MOKRA Consulting · ${esc(EVENT.contact)}</span>`;
+}
+
+function show(d, fresh) {
+  S.data = d; S.email = d.email;
+  if (d.found) renderPass(fresh); else renderNotFound();
+  renderFoot();
+  if (fresh && d.found && d.guest.checkedIn) setTimeout(confetti, 600);
+}
+
+/* ---------- start ---------- */
+async function start() {
+  renderLoading();
+  try {
+    const me = await server('getMyPass');
+    S.googleUrl = /^https:\/\//.test(me.googleUrl || '') ? me.googleUrl : '';
+    if (me.email) { S.mode = 'google'; return show(me, true); }
+    const saved = store.get('bs26-pass-email');
+    if (saved) {
+      try { const d = await server('getPassByEmail', saved); if (d.found) { S.mode = store.get('bs26-pass-mode') === 'google' ? 'google' : 'email'; return show(d, false); } } catch (e) {}
+      store.del('bs26-pass-email'); store.del('bs26-pass-mode');
+    }
+    S.mode = 'none'; S.data = null; renderLogin(); renderFoot();
+  } catch (e) { renderError(e.message); renderFoot(); }
+}
+
+/* live update once scanned */
+async function poll() {
+  const d0 = S.data;
+  if (!d0 || !d0.found || d0.guest.checkedIn || document.visibilityState !== 'visible') return;
+  try {
+    const d = (S.mode === 'google' && hasGAS()) ? await server('getMyPass') : await server('getPassByEmail', S.email);
+    if (d.found && d.guest.checkedIn) {
+      S.data = d;
+      const st = $('#st'); if (st) st.outerHTML = statusHTML(d.guest);
+      const sl = $('#stampSlot'); if (sl) sl.innerHTML = stampHTML(d.guest);
+      if (!$('#ov').hidden && $('#ov').classList.contains('scanmode')) closeOv();
+      confetti(); vibrate([80, 60, 160]); banner(`Welcome to Beyond Strategy, ${firstName(d.guest.name)}!`);
+    }
+  } catch (e) {}
+}
+setInterval(poll, 15000);
+document.addEventListener('visibilitychange', poll);
+
+/* ---------- overlays ---------- */
+let wake = null;
+function closeOv() { const ov = $('#ov'); ov.hidden = true; ov.innerHTML = ''; ov.className = 'ov'; try { wake && wake.release(); } catch (e) {} wake = null; }
+async function scanMode() {
+  const g = S.data.guest, ov = $('#ov'); ov.className = 'ov scanmode';
+  ov.innerHTML = `<div class="in" role="dialog" aria-label="Your QR code"><canvas id="bigqr"></canvas><b>${esc(g.name)}</b><span class="code">${esc(g.id)}</span><p>Turn your screen brightness up and hold the phone steady.</p><button class="btn" data-act="closeov">Done</button></div>`;
+  ov.hidden = false;
+  const c = $('#bigqr'); paintQR(c.getContext('2d'), g.id, 0, 0, sizeCanvas(c, 320));
+  try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+async function passImage() {
+  try { await document.fonts.ready; } catch (e) {}
+  const g = S.data.guest, W = 1080, H = 1640, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  const bg = x.createLinearGradient(0, 0, W * .5, H); bg.addColorStop(0, '#040a33'); bg.addColorStop(.6, '#0b1670'); bg.addColorStop(1, '#1430c4'); x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  const glow = (cx, cy, r, col) => { const gr = x.createRadialGradient(cx, cy, 0, cx, cy, r); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, W, H); };
+  glow(W, 0, 700, 'rgba(47,107,255,.55)'); glow(0, H, 700, 'rgba(196,92,240,.35)');
+  const tg = x.createLinearGradient(140, 0, 940, 0); tg.addColorStop(0, '#45f0e6'); tg.addColorStop(.42, '#8fb2ff'); tg.addColorStop(.72, '#d58af5'); tg.addColorStop(1, '#f39bd6');
+  x.textAlign = 'center'; x.fillStyle = '#b6bfea'; x.font = '600 30px Montserrat, sans-serif'; x.fillText('MOKRA Consulting presents', W / 2, 120);
+  x.fillStyle = '#fff'; x.font = '800 128px Montserrat, sans-serif'; x.fillText('BEYOND', W / 2, 260);
+  x.fillStyle = tg; x.fillText('STRATEGY', W / 2, 385);
+  x.fillStyle = '#fff'; x.font = '800 42px Montserrat, sans-serif'; x.fillText('CONSULTING & CAREER LAB', W / 2, 455);
+  const qs = 560, qx = (W - qs) / 2, qy = 525;
+  x.save(); x.shadowColor = 'rgba(69,240,230,.5)'; x.shadowBlur = 60; x.fillStyle = '#fff'; rr(x, qx - 24, qy - 24, qs + 48, qs + 48, 40); x.fill(); x.restore();
+  paintQR(x, g.id, qx, qy, qs);
+  x.fillStyle = '#fff'; x.font = '800 62px Montserrat, sans-serif'; x.fillText(String(g.name || '').slice(0, 28), W / 2, 1225);
+  x.fillStyle = '#b6bfea'; x.font = '600 30px Montserrat, sans-serif'; x.fillText(String(g.university || '').slice(0, 52), W / 2, 1275);
+  x.fillStyle = tg; x.font = '800 40px Montserrat, sans-serif'; x.fillText(g.id, W / 2, 1340);
+  x.fillStyle = '#dfe4ff'; x.font = '600 28px Montserrat, sans-serif'; x.fillText(EVENT.date + ' · ' + EVENT.time, W / 2, 1405); x.fillText(EVENT.place + ', SWU Services Building', W / 2, 1447);
+  x.fillStyle = 'rgba(255,255,255,.1)'; rr(x, 190, 1500, 700, 80, 40); x.fill();
+  x.fillStyle = '#fff'; x.font = '700 30px Montserrat, sans-serif'; x.fillText('Bring your own laptop or tablet', W / 2, 1551);
+  return c.toDataURL('image/png');
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-act],[data-pick],[data-pack]');
+  if (!t) { if (e.target.id === 'ov') closeOv(); return; }
+  if (t.dataset.pick) { S.demoGoogle = t.dataset.pick; closeOv(); renderLoading('Checking your registration…'); try { const d = await server('getMyPass'); S.mode = 'google'; show(d, true); } catch (er) { renderError(er.message); } return; }
+  if (t.dataset.pack) {
+    const k = t.dataset.pack, done = Object.assign({ pass: true }, store.get(packKey()) || {});
+    done[k] = !done[k]; store.set(packKey(), done);
+    t.setAttribute('aria-checked', String(done[k]));
+    const n = PACK.filter(p => done[p[0]]).length;
+    $('#pk').textContent = n + ' of ' + PACK.length + ' ready'; $('#pkbar').style.width = (n / PACK.length * 100) + '%';
+    if (done[k]) { const r = t.querySelector('.box').getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, 7); vibrate(20); }
+    if (n === PACK.length && done[k]) { confetti(); banner("You're all packed. See you on the 12th!"); }
+    return;
+  }
+  switch (t.dataset.act) {
+    case 'retry': return start();
+    case 'gdemo': return openChooser();
+    case 'gonav': setTimeout(() => renderLoading('Opening Google sign-in…'), 80); return;
+    case 'useemail': S.mode = 'none'; S.data = null; renderLogin(); renderFoot(); setTimeout(() => { const i = $('#em'); i && i.focus(); }, 50); return;
+    case 'signout': store.del('bs26-pass-email'); store.del('bs26-pass-mode'); try { if (gisReady) google.accounts.id.disableAutoSelect(); } catch (er) {} S.mode = 'none'; S.data = null; renderLogin(); renderFoot(); return;
+    case 'bigqr': return scanMode();
+    case 'closeov': return closeOv();
+    case 'saveimg': { const url = await passImage(), ov = $('#ov'); ov.className = 'ov';
+      ov.innerHTML = `<div class="in"><img src="${url}" alt="Your entry pass"><p>Press and hold the image to save it to your photos, or take a screenshot.</p><div class="two"><a class="btn primary" href="${url}" download="beyond-strategy-pass.png">Download</a><button class="btn" data-act="closeov">Close</button></div></div>`;
+      ov.hidden = false; return; }
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#ov').hidden) closeOv(); });
+
+start();
+})();
+</script>
+</body>
+</html>
